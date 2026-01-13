@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Phishing Scanner v2</title>
+  <!-- Optional: custom styles -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+<div class="max-w-3xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+  <div class="text-center mb-10">
+    <h1 class="text-4xl font-bold text-gray-800">Phishing Scanner v2</h1>
+    <p class="mt-3 text-lg text-gray-600">Quick phishing & malicious link detection</p>
+  </div>
+
+  <form id="urlForm" class="flex flex-col sm:flex-row gap-4 justify-center">
+    <input 
+      type="text" 
+      id="urlInput" 
+      placeholder="https://example.com or suspicious-link.xyz" 
+      class="flex-1 px-5 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+      required
+    >
+    <button 
+      type="submit"
+      class="bg-blue-600 text-white px-8 py-4 rounded-lg font-medium hover:bg-blue-700 transition"
+    >
+      Scan URL
+    </button>
+  </form>
+
+  <div id="result" class="mt-10 hidden">
+    <div id="verdictBox" class="p-6 rounded-xl border-2 text-center mb-6 transition-all duration-300">
+      <h2 id="verdictText" class="text-3xl font-bold mb-2"></h2>
+      <p id="scoreText" class="text-lg"></p>
+    </div>
+
+    <div class="bg-white rounded-xl shadow p-6">
+      <h3 class="text-xl font-semibold mb-4">Detailed Analysis</h3>
+      <ul id="detailsList" class="space-y-3"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('urlForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const url = document.getElementById('urlInput').value.trim();
+  const resultDiv = document.getElementById('result');
+  const verdictBox = document.getElementById('verdictBox');
+  const verdictText = document.getElementById('verdictText');
+  const scoreText = document.getElementById('scoreText');
+  const detailsList = document.getElementById('detailsList');
+
+  detailsList.innerHTML = '';
+  resultDiv.classList.remove('hidden');
+
+  try {
+    const response = await fetch('/analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: `url=${encodeURIComponent(url)}`
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      verdictText.textContent = "Error";
+      verdictBox.className = "p-6 rounded-xl border-2 text-center mb-6 bg-red-50 border-red-400";
+      scoreText.textContent = data.error;
+      return;
+    }
+
+    // Update verdict
+    verdictText.textContent = data.verdict;
+    scoreText.textContent = `Risk Score: ${data.score}/${data.max_possible}`;
+    verdictBox.className = `p-6 rounded-xl border-2 text-center mb-6 verdict-${data.verdict_class}`;
+
+    // Fill details
+    data.details.forEach(([text, level]) => {
+      const li = document.createElement('li');
+      const color = level === 'critical' ? 'text-red-600 font-bold' :
+                    level === 'high'     ? 'text-orange-600' :
+                    level === 'medium'   ? 'text-amber-700' :
+                    level === 'low'      ? 'text-gray-600' :
+                    'text-gray-800';
+      
+      li.innerHTML = `<span class="${color}">${text}</span>`;
+      detailsList.appendChild(li);
+    });
+
+  } catch (err) {
+    verdictText.textContent = "Connection Error";
+    scoreText.textContent = "Could not connect to analysis server";
+  }
+});
+</script>
+<!-- At the end of body, before </body> -->
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
